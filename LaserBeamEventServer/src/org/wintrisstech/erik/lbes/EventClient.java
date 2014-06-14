@@ -6,7 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-public class EventClientServerSide implements Runnable {
+public class EventClient implements Runnable {
 
 	private final EventServer server;
 	// private final BufferedReader in;
@@ -14,9 +14,9 @@ public class EventClientServerSide implements Runnable {
 	private final Socket socket;
 	private boolean listening = true;
 
-	public EventClientServerSide(EventServer server, Socket socket, PrintWriter out) {
+	public EventClient(EventServer server, Socket socket) throws IOException {
 		this.server = server;
-		this.out = out;
+		this.out = new PrintWriter(socket.getOutputStream(), true);
 		this.socket = socket;
 		new Thread(this).start();
 	}
@@ -26,7 +26,6 @@ public class EventClientServerSide implements Runnable {
 		BufferedReader in = null;
 		try {
 			in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-			System.out.println("Listening for input from " + socket.getRemoteSocketAddress());
 			String line = null;
 			while (listening && (line = in.readLine()) != null) {
 				System.out.println(line);
