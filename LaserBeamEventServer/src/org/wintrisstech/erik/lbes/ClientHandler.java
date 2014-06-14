@@ -6,7 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
 
-public class EventClient implements Runnable {
+public class ClientHandler implements Runnable {
 
 	private final EventServer server;
 	// private final BufferedReader in;
@@ -14,7 +14,7 @@ public class EventClient implements Runnable {
 	private final Socket socket;
 	private boolean listening = true;
 
-	public EventClient(EventServer server, Socket socket) throws IOException {
+	public ClientHandler(EventServer server, Socket socket) throws IOException {
 		this.server = server;
 		this.out = new PrintWriter(socket.getOutputStream(), true);
 		this.socket = socket;
@@ -33,16 +33,23 @@ public class EventClient implements Runnable {
 					listening = false;
 				}
 			}
-			server.sayGoodBye(this);
+			server.goodBye(this);
+
 		} catch (IOException e) {
 			System.out.println(e.getMessage());
 		} finally {
-			if(in != null) {
-				try {
+			try {
+				if (in != null) {
 					in.close();
-				} catch (IOException e) {
-					System.err.println(e.getMessage());
 				}
+				if (out != null) {
+					out.close();
+				}
+				if (socket != null) {
+					socket.close();
+				}
+			} catch (IOException e) {
+				System.err.println(e.getMessage());
 			}
 		}
 	}
@@ -53,20 +60,6 @@ public class EventClient implements Runnable {
 
 	public Socket getSocket() {
 		return socket;
-	}
-
-	public void shutdown() {
-		try {
-			if (socket != null) {
-				socket.close();
-			}
-			if (out != null) {
-				out.close();
-			}
-		} catch (IOException e) {
-			System.out.println(e.getMessage());
-		}
-
 	}
 
 }

@@ -24,7 +24,7 @@ public class EventServer {
 	private boolean localHigh = false;
 	private boolean remoteHigh = false;
 
-	private List<EventClient> clients = new ArrayList<EventClient>();
+	private List<ClientHandler> clientHandlers = new ArrayList<ClientHandler>();
 	private GpioController gpio;
 
 	public static void main(String[] args) {
@@ -42,7 +42,7 @@ public class EventServer {
 		// Provision gpio pin #10 as an output pin
 		final GpioPinDigitalOutput watchdog = gpio.provisionDigitalOutputPin(
 				RaspiPin.GPIO_10, PinState.LOW);
-
+		blink(watchdog);
 		// provision gpio pin #02 as a local input pin with its internal pull
 		// down resistor enabled
 		final GpioPinDigitalInput laserBeamSenseLocal = gpio.provisionDigitalInputPin(
@@ -53,12 +53,12 @@ public class EventServer {
 		final GpioPinDigitalInput laserBeamSenseRemote = gpio.provisionDigitalInputPin(
 				RaspiPin.GPIO_11, PinPullResistance.PULL_DOWN);
 
-		// create and register gpio pin listener
+		// create and register local GPIO pin listener
 		laserBeamSenseLocal.addListener(new GpioPinListenerDigital() {
 			@Override
 			public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
 				localHigh = event.getState() == PinState.HIGH;
-				for (EventClient cl : clients) {
+				for (ClientHandler cl : clientHandlers) {
 					cl.getOut().println("local:" + (localHigh ? "high" : "low"));
 				}
 				blink(watchdog);
@@ -66,21 +66,24 @@ public class EventServer {
 
 		});
 
-		// create and register gpio pin listener
+		// create and register remote GPIO pin listener
 		laserBeamSenseRemote.addListener(new GpioPinListenerDigital() {
 			@Override
 			public void handleGpioPinDigitalStateChangeEvent(GpioPinDigitalStateChangeEvent event) {
 				remoteHigh = event.getState() == PinState.HIGH;
-				for (EventClient cl : clients) {
+				for (ClientHandler cl : clientHandlers) {
 					cl.getOut().println("remote:" + (remoteHigh ? "high" : "low"));
 				}
 				blink(watchdog);
 			}
 		});
-		blink(watchdog);
 		System.out.println("Initialization complete");
 	}
 
+	/**
+	 * Sets the led to blink at a rate that depends on the state of the two laser beams.
+	 * @param led the pin of the LED that is set to blink
+	 */
 	private void blink(final GpioPinDigitalOutput led) {
 		if (localHigh && remoteHigh) {
 			led.blink(500L, 1000L, PinState.HIGH);
@@ -98,16 +101,16 @@ public class EventServer {
 			System.out.println("Listening on " + serverSocket.getLocalPort());
 			while (listening) {
 				final Socket socket = serverSocket.accept();
-				EventClient client = new EventClient(this, socket);
-				clients.add(client);
+				ClientHandler clientHandler = new ClientHandler(this, socket);
+				clientHandlers.add(clientHandler);
 				System.out.println("Connected to " + socket.getRemoteSocketAddress());
 			}
 		} catch (IOException e) {
 			System.out.println("Exception caught while listening on port " + PORT);
 			System.out.println(e.getMessage());
 		} finally {
-			for (EventClient client : clients) {
-				client.shutdown();
+			for (ClientHandler handler : clientHandlers) {
+				handler.getOut().println("bye");
 			}
 			if (serverSocket != null) {
 				try {
@@ -120,11 +123,9 @@ public class EventServer {
 		}
 	}
 
-	public void sayGoodBye(EventClient client) throws IOException {
-		String clientAddress = client.getSocket().getRemoteSocketAddress().toString();
-		client.getOut().println("bye");
-		clients.remove(client);
-		client.shutdown();
+	public void goodBye(ClientHandler handler) throws IOException {
+		String clientAddress = handler.getSocket().getRemoteSocketAddress().toString();
 		System.out.println("Disconnected from " + clientAddress);
+		clientHandlers.remove(handler);
 	}
 }
