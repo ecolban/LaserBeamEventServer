@@ -86,11 +86,11 @@ public class EventServer {
 	 */
 	private void blink(final GpioPinDigitalOutput led) {
 		if (localHigh && remoteHigh) {
-			led.blink(500L, 1000L, PinState.HIGH);
+			led.blink(1000L, PinState.HIGH);
 		} else if (localHigh || remoteHigh) {
-			led.blink(500L, 500L, PinState.HIGH);
+			led.blink(500L, PinState.HIGH);
 		} else {
-			led.blink(250L, 250L, PinState.HIGH);
+			led.blink(250L, PinState.HIGH);
 		}
 	}
 
