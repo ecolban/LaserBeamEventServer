@@ -3,6 +3,7 @@ package org.wintrisstech.erik.lbes;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketAddress;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,7 +43,7 @@ public class EventServer {
 		// Provision gpio pin #10 as an output pin
 		final GpioPinDigitalOutput watchdog = gpio.provisionDigitalOutputPin(
 				RaspiPin.GPIO_10, PinState.LOW);
-		blink(watchdog);
+		watchdog.blink(getBlinkDelay(), PinState.HIGH);
 		// provision gpio pin #02 as a local input pin with its internal pull
 		// down resistor enabled
 		final GpioPinDigitalInput laserBeamSenseLocal = gpio.provisionDigitalInputPin(
@@ -61,7 +62,7 @@ public class EventServer {
 				for (ClientHandler cl : clientHandlers) {
 					cl.getOut().println("local:" + (localHigh ? "high" : "low"));
 				}
-				blink(watchdog);
+				watchdog.blink(getBlinkDelay(), PinState.HIGH);
 			}
 
 		});
@@ -74,24 +75,23 @@ public class EventServer {
 				for (ClientHandler cl : clientHandlers) {
 					cl.getOut().println("remote:" + (remoteHigh ? "high" : "low"));
 				}
-				blink(watchdog);
+				watchdog.blink(getBlinkDelay(), PinState.HIGH);
 			}
 		});
 		System.out.println("Initialization complete");
 	}
 
 	/**
-	 * Sets the led to blink at a rate that depends on the state of the two laser beams.
-	 * @param led the pin of the LED that is set to blink
+	 * Sets the led to blink at a rate that depends on the state of the two
+	 * laser beams.
+	 * 
+	 * @param led
+	 *            the pin of the LED that is set to blink
 	 */
-	private void blink(final GpioPinDigitalOutput led) {
-		if (localHigh && remoteHigh) {
-			led.blink(1000L, PinState.HIGH);
-		} else if (localHigh || remoteHigh) {
-			led.blink(500L, PinState.HIGH);
-		} else {
-			led.blink(250L, PinState.HIGH);
-		}
+	private long getBlinkDelay() {
+		return localHigh
+				? (remoteHigh ? 1000L : 500L)
+				: (remoteHigh ? 500L : 250L);
 	}
 
 	private void listenForClients() {
@@ -100,10 +100,7 @@ public class EventServer {
 			serverSocket = new ServerSocket(PORT);
 			System.out.println("Listening on " + serverSocket.getLocalPort());
 			while (listening) {
-				final Socket socket = serverSocket.accept();
-				ClientHandler clientHandler = new ClientHandler(this, socket);
-				clientHandlers.add(clientHandler);
-				System.out.println("Connected to " + socket.getRemoteSocketAddress());
+				addHandler(serverSocket.accept());
 			}
 		} catch (IOException e) {
 			System.out.println("Exception caught while listening on port " + PORT);
@@ -116,16 +113,22 @@ public class EventServer {
 				try {
 					serverSocket.close();
 				} catch (IOException e) {
-					System.out.println(e.getMessage());
+					System.out.println(e.getMessage()); 
 				}
 			}
 			gpio.shutdown();
 		}
 	}
 
-	public void goodBye(ClientHandler handler) throws IOException {
-		String clientAddress = handler.getSocket().getRemoteSocketAddress().toString();
-		System.out.println("Disconnected from " + clientAddress);
+	private void addHandler(final Socket socket) throws IOException {
+		ClientHandler clientHandler = new ClientHandler(this, socket);
+		clientHandlers.add(clientHandler);
+		System.out.println("Connected to " + socket.getRemoteSocketAddress());
+	}
+
+	public void removeHandler(ClientHandler handler) throws IOException {
+		SocketAddress clientAddress = handler.getSocket().getRemoteSocketAddress();
 		clientHandlers.remove(handler);
+		System.out.println("Disconnected from " + clientAddress);
 	}
 }

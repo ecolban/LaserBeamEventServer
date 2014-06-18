@@ -28,13 +28,9 @@ public class ClientHandler implements Runnable {
 			in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 			String line = null;
 			while (listening && (line = in.readLine()) != null) {
-				System.out.println(line);
-				if (line.toLowerCase().equals("bye")) {
-					listening = false;
-				}
+				listening = !line.toLowerCase().equals("bye");
 			}
-			server.goodBye(this);
-
+			server.removeHandler(this);
 		} catch (IOException e) {
 			System.out.println(e.getMessage());
 		} finally {
